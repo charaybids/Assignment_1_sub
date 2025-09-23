@@ -133,7 +133,7 @@ Pipeline settings can be modified in `utils/config.py`:
 
 ```python
 # Pipeline Configuration
-PREDICTION_MONTHS = 2          # Months after loan start for prediction
+PREDICTION_MONTHS = 0          # Months after loan start for prediction
 LABEL_WINDOW_DAYS = 90         # Days to check for defaults
 
 # Spark Configuration
