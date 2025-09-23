@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""
+Silver Layer Pipeline - Data Cleaning and Validation
+"""
+import sys
+import os
+sys.path.append('/app/utils')
+
+from spark_utils import create_spark_session, stop_spark_session
+from silver_utils import clean_silver_data, remove_flagged_customers, save_data, check_silver_exists
+from config import BRONZE_PATH, SILVER_PATH, SPARK_CONFIG
+
+
+def main():
+    """Main function for silver pipeline"""
+    print("Starting Silver Layer Pipeline...")
+    
+    # Create Spark session
+    spark = create_spark_session(
+        app_name=SPARK_CONFIG['app_name'] + "_Silver",
+        master=SPARK_CONFIG['master'],
+        driver_memory=SPARK_CONFIG['driver_memory'],
+        log_level=SPARK_CONFIG['log_level']
+    )
+    
+    try:
+        # Check if silver layer already exists
+        if check_silver_exists(SILVER_PATH):
+            print(f"Silver layer already exists at '{SILVER_PATH}'. Skipping.")
+        else:
+            # Execute silver pipeline
+            unfiltered_silver_data, flagged_customers = clean_silver_data(BRONZE_PATH, spark)
+            silver_data = remove_flagged_customers(unfiltered_silver_data, flagged_customers)
+            save_data(silver_data, SILVER_PATH)
+            
+            # Show sample data
+            print("Sample of Cleaned Attributes Data:")
+            silver_data['attributes'].show(10)
+            print("\nSample of Cleaned Financials Data:")
+            silver_data['financials'].show(10)
+            print("\nSilver pipeline completed successfully!")
+            
+    except Exception as e:
+        print(f"Error in silver pipeline: {e}")
+        sys.exit(1)
+    finally:
+        stop_spark_session(spark)
+
+
+if __name__ == "__main__":
+    main()

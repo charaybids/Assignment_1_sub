@@ -1,0 +1,4 @@
+# Requirements for the containerized data processing pipeline
+pyspark==3.4.1
+pandas==2.0.3
+numpy==1.24.3
