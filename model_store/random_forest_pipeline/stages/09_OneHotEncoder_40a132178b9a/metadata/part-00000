@@ -1,1 +1,0 @@
-{"class":"org.apache.spark.ml.feature.OneHotEncoderModel","timestamp":1758684120409,"sparkVersion":"3.4.1","uid":"OneHotEncoder_40a132178b9a","paramMap":{"inputCol":"Num_of_Delayed_Payment_idx","outputCol":"Num_of_Delayed_Payment_ohe"},"defaultParamMap":{"handleInvalid":"error","outputCol":"OneHotEncoder_40a132178b9a__output","dropLast":true}}

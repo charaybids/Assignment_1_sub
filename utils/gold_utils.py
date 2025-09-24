@@ -6,7 +6,7 @@ import pyspark.sql.functions as F
 from pyspark.sql.types import IntegerType
 
 
-def create_label_store(loan_daily_df, prediction_months, label_window_days):
+def create_label_store(loan_daily_df, prediction_months, label_window_months):
     """
     Create label store for training data
     
@@ -18,7 +18,7 @@ def create_label_store(loan_daily_df, prediction_months, label_window_days):
     Returns:
         DataFrame: Label store with Customer_ID, loan_id, prediction_date, and label
     """
-    print(f"--- Creating Label Store: Predicting at {prediction_months} months for a {label_window_days}-day window ---")
+    print(f"--- Creating Label Store: Predicting at {prediction_months} months with a {label_window_months}-month window ---")
     
     loan_daily_with_start_date = loan_daily_df.withColumn(
         "loan_start_date_dt", F.to_date(F.col("loan_start_date"), "M/d/yyyy")
@@ -31,13 +31,13 @@ def create_label_store(loan_daily_df, prediction_months, label_window_days):
     labels_df = loan_info.withColumn(
         "prediction_date", F.add_months(F.col("start_date"), prediction_months)
     ).withColumn(
-        "label_window_end", F.date_add(F.col("prediction_date"), label_window_days)
+        "label_window_end", F.add_months(F.col("prediction_date"), label_window_months)
     )
     
     loan_events = loan_daily_df.select("loan_id", "snapshot_date", "overdue_amt")
     default_events = labels_df.join(loan_events, on="loan_id") \
         .filter(
-            (F.col("snapshot_date") > F.col("prediction_date")) & 
+            (F.col("snapshot_date") >= F.col("prediction_date")) & 
             (F.col("snapshot_date") <= F.col("label_window_end")) & 
             (F.col("overdue_amt") > 0)
         ) \

@@ -5,8 +5,9 @@ Only essential settings are kept for clarity.
 """
 
 # Pipeline Configuration
-PREDICTION_MONTHS = 0
-LABEL_WINDOW_DAYS = 90
+# Predict as-of loan start + PREDICTION_MONTHS; label defaults within LABEL_WINDOW_MONTHS after that
+PREDICTION_MONTHS = 1
+LABEL_WINDOW_MONTHS = 12
 
 # Data paths (relative to project root)
 RAW_DATA_PATHS = {

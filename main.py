@@ -29,7 +29,7 @@ from utils.config import (
     LABEL_STORE_PATH,
     MODEL_PATH,
     PREDICTION_MONTHS,
-    LABEL_WINDOW_DAYS,
+    LABEL_WINDOW_MONTHS,
     SPARK_CONFIG,
 )
 from utils.spark_utils import create_spark_session, stop_spark_session
@@ -72,7 +72,7 @@ def run_gold(spark):
         label_store_df = spark.read.parquet(LABEL_STORE_PATH)
     else:
         silver_loan_daily = spark.read.parquet(os.path.join(SILVER_PATH, 'loan_daily'))
-        label_store_df = create_label_store(silver_loan_daily, PREDICTION_MONTHS, LABEL_WINDOW_DAYS)
+        label_store_df = create_label_store(silver_loan_daily, PREDICTION_MONTHS, LABEL_WINDOW_MONTHS)
         label_store_df.write.mode("overwrite").parquet(LABEL_STORE_PATH)
         print(f"Saved label store -> {LABEL_STORE_PATH}")
 
