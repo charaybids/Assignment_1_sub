@@ -8,7 +8,8 @@ sys.path.append('/app/utils')
 
 from spark_utils import create_spark_session, stop_spark_session
 from silver_utils import clean_silver_data, remove_flagged_customers, save_data, check_silver_exists
-from config import BRONZE_PATH, SILVER_PATH, SPARK_CONFIG
+from config import BRONZE_PATH, SILVER_PATH, SPARK_CONFIG, EDA_OUTPUT_PATH, EDA_TOP_K
+from eda_utils import run_eda_on_path
 
 
 def main():
@@ -27,11 +28,18 @@ def main():
         # Check if silver layer already exists
         if check_silver_exists(SILVER_PATH):
             print(f"Silver layer already exists at '{SILVER_PATH}'. Skipping.")
+            for name in ["attributes", "financials", "loan_daily", "clickstream"]:
+                path = os.path.join(SILVER_PATH, name)
+                if os.path.isdir(path):
+                    run_eda_on_path(spark, path, f"silver_{name}", EDA_OUTPUT_PATH, top_k=EDA_TOP_K)
         else:
             # Execute silver pipeline
             unfiltered_silver_data, flagged_customers = clean_silver_data(BRONZE_PATH, spark)
             silver_data = remove_flagged_customers(unfiltered_silver_data, flagged_customers)
             save_data(silver_data, SILVER_PATH)
+            for name in silver_data.keys():
+                path = os.path.join(SILVER_PATH, name)
+                run_eda_on_path(spark, path, f"silver_{name}", EDA_OUTPUT_PATH, top_k=EDA_TOP_K)
             
             # Show sample data
             print("Sample of Cleaned Attributes Data:")

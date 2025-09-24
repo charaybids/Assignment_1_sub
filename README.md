@@ -24,7 +24,7 @@ Assignment_1_sub/
 │   ├── silver_utils.py        # Silver layer processing
 │   ├── gold_utils.py          # Gold layer processing
 │   └── model_utils.py         # Model training utilities
-└── pipelines/                 # Optional: previous modular scripts (not required)
+└── pipelines/                 # Optional: previous modular scripts (no EDA included)
 ```
 
 ## Pipeline Architecture
@@ -86,7 +86,7 @@ Assignment_1_sub/
 
 Create a `data/` directory in the project root and place your raw CSV files:
 
-```bash
+```powershell
 mkdir data
 # Copy your CSV files to the data/ directory
 ```
@@ -109,23 +109,14 @@ http://127.0.0.1:8888/lab?token=<token>
 Open the link in your browser, then:
 - In JupyterLab, open a Terminal and run:
 
-```bash
+```powershell
 python main.py
 ```
-
-or open a Python Notebook/Console and run:
-
-```python
-!python main.py
-```
+You can also run from a Python console inside JupyterLab: `!python main.py`.
 
 ### 3. Monitor Progress
 
-The pipeline will output detailed logs showing:
-- Data processing progress
-- Row counts and transformations
-- Model training metrics
-- Feature importance rankings
+The pipeline prints concise logs of key steps, row counts, and model metrics.
 
 ## Configuration
 
@@ -133,7 +124,7 @@ Pipeline settings can be modified in `utils/config.py`:
 
 ```python
 # Pipeline Configuration
-PREDICTION_MONTHS = 2          # Months after loan start for prediction
+PREDICTION_MONTHS = 0          # Months after loan start for prediction
 LABEL_WINDOW_DAYS = 90         # Days to check for defaults
 
 # Spark Configuration
@@ -162,3 +153,5 @@ After successful execution, you'll have:
 3. **Performance Metrics**:
    - AUC scores for both models
    - Feature importance rankings
+
+4. EDA and charts were intentionally removed to keep the codebase compact and easy to follow.

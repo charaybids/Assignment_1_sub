@@ -1,7 +1,8 @@
 """
-Configuration settings for the data processing pipeline
+Configuration settings for the data processing pipeline.
+
+Only essential settings are kept for clarity.
 """
-import os
 
 # Pipeline Configuration
 PREDICTION_MONTHS = 0
@@ -21,6 +22,8 @@ SILVER_PATH = 'datamart/silver/'
 GOLD_PATH = 'datamart/gold/'
 LABEL_STORE_PATH = 'datamart/label_store/'
 MODEL_PATH = 'model_store/'
+
+# EDA removed
 
 # Spark Configuration
 SPARK_CONFIG = {

@@ -1,9 +1,9 @@
 """
-Gold layer data processing utilities
+Gold layer utilities: label store creation and feature engineering.
 """
 import os
 import pyspark.sql.functions as F
-from pyspark.sql.types import StringType, IntegerType
+from pyspark.sql.types import IntegerType
 
 
 def create_label_store(loan_daily_df, prediction_months, label_window_days):

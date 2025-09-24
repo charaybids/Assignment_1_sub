@@ -1,9 +1,15 @@
 """
-Silver layer data processing utilities
+Silver layer utilities.
+
+Summary of steps:
+- Load bronze datasets
+- Clean values and flag bad records by Customer_ID
+- Print how many Customer_IDs are flagged vs the total unique customer base
+- Return cleaned dataframes (before removal) and the flagged Customer_IDs
 """
 import os
 import pyspark.sql.functions as F
-from pyspark.sql.types import StringType, IntegerType, FloatType
+from pyspark.sql.types import IntegerType, FloatType
 
 
 def clean_silver_data(bronze_path, spark_session):
@@ -25,14 +31,7 @@ def clean_silver_data(bronze_path, spark_session):
     loan_daily_df = spark_session.read.parquet(os.path.join(bronze_path, 'loan_daily'))
     clickstream_df = spark_session.read.parquet(os.path.join(bronze_path, 'clickstream'))
 
-    # --- Inspection Step ---
-    print("\n--- Inspecting Bronze Data: 'attributes' ---")
-    attributes_df.printSchema()
-    attributes_df.show(5)
-
-    print("\n--- Inspecting Bronze Data: 'financials' ---")
-    financials_df.printSchema()
-    financials_df.show(5)
+    # Keep runtime output concise; inspection prints removed for readability
 
     # --- 1. Clean and Flag Attributes Data ---
     attributes_cleaned_placeholders = attributes_df.withColumn("Occupation", 
@@ -89,7 +88,17 @@ def clean_silver_data(bronze_path, spark_session):
     flagged_customers_loan = loan_daily_cleaned.filter(F.col("data_quality_issue") == 1).select("Customer_ID")
     
     all_flagged_customers = flagged_customers_attr.union(flagged_customers_fin).union(flagged_customers_loan).distinct()
-    print(f"Found {all_flagged_customers.count()} customers with data quality issues.")
+    # Summary print: flagged vs total unique customers across all bronze datasets
+    total_customers = attributes_df.select("Customer_ID").unionByName(
+        financials_df.select("Customer_ID")
+    ).unionByName(
+        loan_daily_df.select("Customer_ID")
+    ).unionByName(
+        clickstream_df.select("Customer_ID")
+    ).distinct().count()
+    flagged_count = all_flagged_customers.count()
+    pct = (flagged_count / total_customers * 100.0) if total_customers else 0.0
+    print(f"Flagged Customer_IDs for deletion: {flagged_count} of {total_customers} total ({pct:.2f}%).")
 
     # Prepare dictionary of cleaned dataframes (before filtering)
     silver_dfs = {

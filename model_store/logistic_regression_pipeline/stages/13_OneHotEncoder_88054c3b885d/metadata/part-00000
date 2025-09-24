@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.OneHotEncoderModel","timestamp":1758684092737,"sparkVersion":"3.4.1","uid":"OneHotEncoder_88054c3b885d","paramMap":{"inputCol":"Payment_Behaviour_idx","outputCol":"Payment_Behaviour_ohe"},"defaultParamMap":{"outputCol":"OneHotEncoder_88054c3b885d__output","dropLast":true,"handleInvalid":"error"}}

@@ -9,7 +9,8 @@ sys.path.append('/app/utils')
 from spark_utils import create_spark_session, stop_spark_session
 from gold_utils import create_label_store, create_gold_features, check_gold_exists, check_label_store_exists
 from silver_utils import save_data
-from config import SILVER_PATH, GOLD_PATH, LABEL_STORE_PATH, PREDICTION_MONTHS, LABEL_WINDOW_DAYS, SPARK_CONFIG
+from config import SILVER_PATH, GOLD_PATH, LABEL_STORE_PATH, PREDICTION_MONTHS, LABEL_WINDOW_DAYS, SPARK_CONFIG, EDA_OUTPUT_PATH, EDA_TOP_K
+from eda_utils import run_eda_on_path
 
 
 def main():
@@ -49,6 +50,10 @@ def main():
             print("Sample of Final Model Data:")
             gold_features_df.show(5, vertical=True)
             print("\nGold pipeline completed successfully!")
+
+        # Run EDA for label store and gold
+        run_eda_on_path(spark, LABEL_STORE_PATH, "label_store", EDA_OUTPUT_PATH, top_k=EDA_TOP_K)
+        run_eda_on_path(spark, GOLD_PATH, "gold_features", EDA_OUTPUT_PATH, top_k=EDA_TOP_K)
             
     except Exception as e:
         print(f"Error in gold pipeline: {e}")

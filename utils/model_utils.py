@@ -1,5 +1,5 @@
 """
-Model training and evaluation utilities
+Model training and evaluation utilities.
 """
 import os
 import pandas as pd
@@ -51,10 +51,11 @@ def create_ml_pipeline(categorical_cols, numerical_cols, model_type="logistic_re
                 for c in categorical_cols]
     encoders = [OneHotEncoder(inputCol=f"{c}_idx", outputCol=f"{c}_ohe") 
                 for c in categorical_cols]
-    imputer = Imputer(inputCols=numerical_cols, 
-                     outputCols=[f"{c}_imputed" for c in numerical_cols]).setStrategy("median")
-    
-    assembler_inputs = [f"{c}_ohe" for c in categorical_cols] + [f"{c}_imputed" for c in numerical_cols]
+    # Impute in-place (no _imputed suffix) so datasets don't contain duplicated columns
+    imputer = Imputer(inputCols=numerical_cols, outputCols=numerical_cols).setStrategy("median")
+
+    # Assemble using original numeric column names (already imputed in-place)
+    assembler_inputs = [f"{c}_ohe" for c in categorical_cols] + numerical_cols
     vector_assembler = VectorAssembler(inputCols=assembler_inputs, outputCol="features")
     
     # Create model

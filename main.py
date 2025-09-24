@@ -1,15 +1,16 @@
 """
-Main entry point to run Bronze, Silver, Gold, and Model pipelines in sequence.
+Main entry point to run the data pipeline (Bronze -> Silver -> Gold -> Models).
 
-Usage:
-  python main.py
+What it does:
+- Creates the datamart structure (bronze/silver/gold) and model_store if missing
+- Bronze: ingest CSVs to parquet partitioned by year/month
+- Silver: clean data, flag bad Customer_IDs, remove them, and save cleaned datasets
+- Gold: build features and a label store for modeling
+- Models: train Logistic Regression and Random Forest and save them
 
-This script will:
-  - Ensure datamart folder exists with bronze/silver/gold subfolders
-  - Run Bronze ingestion (CSV -> Parquet partitioned)
-  - Run Silver cleaning and save cleaned datasets
-  - Create Label Store and Gold features
-  - Train Logistic Regression and Random Forest; save to model_store
+Notes for readers:
+- All explanatory comments live here at the top to keep code compact below.
+- We intentionally removed EDA code and verbose prints for clarity.
 """
 import os
 import sys

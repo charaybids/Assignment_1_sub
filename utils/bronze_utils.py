@@ -1,9 +1,8 @@
 """
-Bronze layer data processing utilities
+Bronze layer utilities: ingest CSVs and write partitioned parquet.
 """
 import os
 import pyspark.sql.functions as F
-from pyspark.sql.types import StringType, IntegerType, FloatType
 
 
 def ingest_and_partition_bronze_data(file_paths, output_path, spark_session):
