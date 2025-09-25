@@ -47,12 +47,12 @@ def ensure_datamart_structure():
     print(f"Ensured datamart structure at: {os.path.join(BASE_DIR, 'datamart')} and model_store")
 
 
-def run_bronze(spark):
+def run_bronze():
     print("\n=== Running Bronze Pipeline ===")
     if check_bronze_exists(BRONZE_PATH):
         print(f"Bronze already exists at {BRONZE_PATH}; skipping ingest.")
     else:
-        ingest_and_partition_bronze_data(RAW_DATA_PATHS, BRONZE_PATH, spark)
+        ingest_and_partition_bronze_data(RAW_DATA_PATHS, BRONZE_PATH)
 
 
 def run_silver(spark):
@@ -117,7 +117,7 @@ def main():
     )
 
     try:
-        run_bronze(spark)
+        run_bronze()
         run_silver(spark)
         gold_features_df = run_gold(spark)
         run_modeling(gold_features_df)

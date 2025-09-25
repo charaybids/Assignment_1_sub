@@ -4,6 +4,7 @@ Gold layer utilities: label store creation and feature engineering.
 import os
 import pyspark.sql.functions as F
 from pyspark.sql.types import IntegerType
+from utils.config import MAX_LOAN_MONTHS
 
 
 def create_label_store(loan_daily_df, prediction_months, label_window_months):
@@ -13,12 +14,25 @@ def create_label_store(loan_daily_df, prediction_months, label_window_months):
     Args:
         loan_daily_df (DataFrame): Loan daily data
         prediction_months (int): Months after loan start to make prediction
-        label_window_days (int): Days window to check for defaults
+    label_window_months (int): Months window to check for defaults
         
     Returns:
         DataFrame: Label store with Customer_ID, loan_id, prediction_date, and label
     """
-    print(f"--- Creating Label Store: Predicting at {prediction_months} months with a {label_window_months}-month window ---")
+    # Auto-clamp label window so that prediction_months + label_window_months <= MAX_LOAN_MONTHS
+    if prediction_months + label_window_months > MAX_LOAN_MONTHS:
+        effective_window = max(0, MAX_LOAN_MONTHS - prediction_months)
+        print(
+            f"[WARN] pm ({prediction_months}) + wm ({label_window_months}) exceeds MAX_LOAN_MONTHS ({MAX_LOAN_MONTHS}). "
+            f"Clamping window to {effective_window}."
+        )
+        label_window_months = effective_window
+    else:
+        effective_window = label_window_months
+
+    print(
+        f"--- Creating Label Store: Predicting at {prediction_months} months with a {effective_window}-month window ---"
+    )
     
     loan_daily_with_start_date = loan_daily_df.withColumn(
         "loan_start_date_dt", F.to_date(F.col("loan_start_date"), "M/d/yyyy")
@@ -31,7 +45,7 @@ def create_label_store(loan_daily_df, prediction_months, label_window_months):
     labels_df = loan_info.withColumn(
         "prediction_date", F.add_months(F.col("start_date"), prediction_months)
     ).withColumn(
-        "label_window_end", F.add_months(F.col("prediction_date"), label_window_months)
+    "label_window_end", F.add_months(F.col("prediction_date"), label_window_months)
     )
     
     loan_events = loan_daily_df.select("loan_id", "snapshot_date", "overdue_amt")

@@ -9,7 +9,7 @@ sys.path.append('/app/utils')
 from spark_utils import create_spark_session, stop_spark_session
 from gold_utils import create_label_store, create_gold_features, check_gold_exists, check_label_store_exists
 from silver_utils import save_data
-from config import SILVER_PATH, GOLD_PATH, LABEL_STORE_PATH, PREDICTION_MONTHS, LABEL_WINDOW_DAYS, SPARK_CONFIG, EDA_OUTPUT_PATH, EDA_TOP_K
+from config import SILVER_PATH, GOLD_PATH, LABEL_STORE_PATH, PREDICTION_MONTHS, LABEL_WINDOW_MONTHS, SPARK_CONFIG, EDA_OUTPUT_PATH, EDA_TOP_K
 from eda_utils import run_eda_on_path
 
 
@@ -32,7 +32,7 @@ def main():
             label_store_df = spark.read.parquet(LABEL_STORE_PATH)
         else:
             silver_loan_daily = spark.read.parquet(os.path.join(SILVER_PATH, 'loan_daily'))
-            label_store_df = create_label_store(silver_loan_daily, PREDICTION_MONTHS, LABEL_WINDOW_DAYS)
+            label_store_df = create_label_store(silver_loan_daily, PREDICTION_MONTHS, LABEL_WINDOW_MONTHS)
             
             # Save label store
             label_store_df.write.mode("overwrite").parquet(LABEL_STORE_PATH)

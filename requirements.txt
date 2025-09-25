@@ -6,3 +6,4 @@ ipykernel==6.29.5
 jupyterlab==4.2.5
 matplotlib==3.8.4
 seaborn==0.13.2
+pyarrow==15.0.2

@@ -5,9 +5,11 @@ Only essential settings are kept for clarity.
 """
 
 # Pipeline Configuration
-# Predict as-of loan start + PREDICTION_MONTHS; label defaults within LABEL_WINDOW_MONTHS after that
 PREDICTION_MONTHS = 1
 LABEL_WINDOW_MONTHS = 12
+
+# Business constraint: maximum loan period in months
+MAX_LOAN_MONTHS = 12
 
 # Data paths (relative to project root)
 RAW_DATA_PATHS = {
@@ -33,3 +35,7 @@ SPARK_CONFIG = {
     'driver_memory': '16g',
     'log_level': 'ERROR'
 }
+
+# Modeling / evaluation configuration
+# Use the last N calendar months (by prediction_date) as out-of-time test set
+TEST_LAST_N_MONTHS = 3
