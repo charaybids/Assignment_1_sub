@@ -4,9 +4,46 @@ Configuration settings for the data processing pipeline.
 Only essential settings are kept for clarity.
 """
 
-# Pipeline Configuration
-PREDICTION_MONTHS = 1
-LABEL_WINDOW_MONTHS = 12
+# ============================================================
+# PREDICTION STRATEGY (Configurable by Business)
+# ============================================================
+
+# When to make the prediction (Month On Book)
+# MOB=0: At application time (no payment history)
+# MOB=1: After first payment
+# MOB=3: After 3 payments, etc.
+PREDICTION_MOB = 0
+
+# When to observe the outcome (Month On Book)
+# MOB=6: Check default at 6th installment
+# MOB=12: Check default at end of loan
+OBSERVATION_MOB = 6
+
+# Label definition strategy
+# "snapshot" - Check if overdue at exact OBSERVATION_MOB (recommended)
+# "window" - Check if ANY overdue between PREDICTION_MOB and OBSERVATION_MOB
+# "cumulative" - Check if total overdue > threshold by OBSERVATION_MOB
+LABEL_STRATEGY = "snapshot"
+
+# For cumulative strategy: minimum overdue amount to flag as default
+OVERDUE_THRESHOLD = 0  # Any overdue > 0 is considered default
+
+# ============================================================
+# FEATURE ENGINEERING
+# ============================================================
+
+# Include loan history features (only works if PREDICTION_MOB > 0)
+# If True, aggregate payment history from MOB=0 to MOB=PREDICTION_MOB
+INCLUDE_LOAN_HISTORY_FEATURES = False  # Set True if predicting at MOB > 0
+
+# Clickstream aggregation window (days before loan application)
+CLICKSTREAM_LOOKBACK_DAYS = None  # None = use all available data
+
+# ============================================================
+# LEGACY (for backward compatibility, will be removed)
+# ============================================================
+PREDICTION_MONTHS = PREDICTION_MOB  # Alias for old code
+LABEL_WINDOW_MONTHS = OBSERVATION_MOB - PREDICTION_MOB  # Derived
 
 # Business constraint: maximum loan period in months
 MAX_LOAN_MONTHS = 12
