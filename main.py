@@ -33,7 +33,7 @@ from utils.config import (
     SPARK_CONFIG,
 )
 from utils.spark_utils import create_spark_session, stop_spark_session
-from utils.bronze_utils import ingest_and_partition_bronze_data, check_bronze_exists
+from utils.bronze_utils import ingest_bronze_data, check_bronze_exists
 from utils.silver_utils import clean_silver_data, remove_flagged_customers, save_data, check_silver_exists
 from utils.gold_utils import create_label_store, create_gold_features, check_gold_exists, check_label_store_exists
 from utils.model_utils import prepare_model_data, create_ml_pipeline, train_and_evaluate_model, get_feature_importance
@@ -52,7 +52,7 @@ def run_bronze():
     if check_bronze_exists(BRONZE_PATH):
         print(f"Bronze already exists at {BRONZE_PATH}; skipping ingest.")
     else:
-        ingest_and_partition_bronze_data(RAW_DATA_PATHS, BRONZE_PATH)
+        ingest_bronze_data(RAW_DATA_PATHS, BRONZE_PATH)
 
 
 def run_silver(spark):

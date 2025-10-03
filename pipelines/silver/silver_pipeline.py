@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""
-Silver Layer Pipeline - Data Cleaning and Validation
-"""
+"""Silver Layer Pipeline - Data Cleaning"""
 import sys
 import os
-sys.path.append('/app/utils')
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'utils'))
 
 from spark_utils import create_spark_session, stop_spark_session
 from silver_utils import clean_silver_data, remove_flagged_customers, save_data, check_silver_exists
-from config import BRONZE_PATH, SILVER_PATH, SPARK_CONFIG, EDA_OUTPUT_PATH, EDA_TOP_K
-from eda_utils import run_eda_on_path
+from config import BRONZE_PATH, SILVER_PATH, SPARK_CONFIG
 
 
 def main():
-    """Main function for silver pipeline"""
-    print("Starting Silver Layer Pipeline...")
+    """Execute silver layer pipeline"""
+    print("\n" + "="*60)
+    print("SILVER LAYER PIPELINE")
+    print("="*60 + "\n")
     
     # Create Spark session
     spark = create_spark_session(
@@ -25,31 +25,28 @@ def main():
     )
     
     try:
-        # Check if silver layer already exists
+        # Check if silver layer exists
         if check_silver_exists(SILVER_PATH):
-            print(f"Silver layer already exists at '{SILVER_PATH}'. Skipping.")
-            for name in ["attributes", "financials", "loan_daily", "clickstream"]:
-                path = os.path.join(SILVER_PATH, name)
-                if os.path.isdir(path):
-                    run_eda_on_path(spark, path, f"silver_{name}", EDA_OUTPUT_PATH, top_k=EDA_TOP_K)
+            print(f"✓ Silver layer exists at '{SILVER_PATH}' - Skipping\n")
         else:
-            # Execute silver pipeline
-            unfiltered_silver_data, flagged_customers = clean_silver_data(BRONZE_PATH, spark)
-            silver_data = remove_flagged_customers(unfiltered_silver_data, flagged_customers)
-            save_data(silver_data, SILVER_PATH)
-            for name in silver_data.keys():
-                path = os.path.join(SILVER_PATH, name)
-                run_eda_on_path(spark, path, f"silver_{name}", EDA_OUTPUT_PATH, top_k=EDA_TOP_K)
+            # Execute cleaning pipeline
+            unfiltered_data, flagged_customers = clean_silver_data(BRONZE_PATH, spark)
+            filtered_data = remove_flagged_customers(unfiltered_data, flagged_customers)
+            save_data(filtered_data, SILVER_PATH)
             
-            # Show sample data
-            print("Sample of Cleaned Attributes Data:")
-            silver_data['attributes'].show(10)
-            print("\nSample of Cleaned Financials Data:")
-            silver_data['financials'].show(10)
-            print("\nSilver pipeline completed successfully!")
+            # Show sample
+            print("=== SAMPLE DATA ===\n")
+            print("Attributes:")
+            filtered_data['attributes'].show(5, truncate=False)
+            print("\nFinancials:")
+            filtered_data['financials'].show(5, truncate=False)
+            
+            print("\n" + "="*60)
+            print("✓ SILVER PIPELINE COMPLETE")
+            print("="*60 + "\n")
             
     except Exception as e:
-        print(f"Error in silver pipeline: {e}")
+        print(f"\n✗ ERROR: {e}\n")
         sys.exit(1)
     finally:
         stop_spark_session(spark)

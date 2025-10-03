@@ -4,9 +4,11 @@ Bronze Layer Pipeline - Data Ingestion and Partitioning
 """
 import sys
 import os
-sys.path.append('/app/utils')
 
-from bronze_utils import ingest_and_partition_bronze_data, check_bronze_exists
+# Add utils to path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'utils'))
+
+from bronze_utils import ingest_bronze_data, check_bronze_exists
 from config import RAW_DATA_PATHS, BRONZE_PATH
 
 
@@ -20,7 +22,7 @@ def main():
             print(f"Bronze layer already exists at '{BRONZE_PATH}'. Skipping ingestion.")
         else:
             # Execute bronze pipeline
-            ingest_and_partition_bronze_data(RAW_DATA_PATHS, BRONZE_PATH)
+            ingest_bronze_data(RAW_DATA_PATHS, BRONZE_PATH)
             print("Bronze pipeline completed successfully!")
             
     except Exception as e:
