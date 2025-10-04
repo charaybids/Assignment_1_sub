@@ -3,11 +3,118 @@ Gold layer utilities: label store creation and feature engineering.
 """
 import os
 import pyspark.sql.functions as F
-from pyspark.sql.types import IntegerType
+from pyspark.sql.types import IntegerType, DoubleType
 from utils.config import (
     MAX_LOAN_MONTHS, PREDICTION_MOB, OBSERVATION_MOB, 
     LABEL_STRATEGY, OVERDUE_THRESHOLD, INCLUDE_LOAN_HISTORY_FEATURES
 )
+
+
+def _analyze_clickstream_for_selection(clickstream_df, label_store_df, top_n=10):
+    """
+    Internal helper: Analyze clickstream features for automated selection in pipeline
+    
+    Args:
+        clickstream_df (DataFrame): Clickstream data with fe_1 to fe_20
+        label_store_df (DataFrame): Label store to compute correlation with target
+        top_n (int): Number of top features to return
+        
+    Returns:
+        dict: Analysis results with recommended_features list
+        
+    Note:
+        For detailed EDA and visualization, use the eda_analysis.ipynb notebook
+    """
+    print(f"\n=== AUTOMATED CLICKSTREAM FEATURE SELECTION ===")
+    print(f"Analyzing 20 clickstream features to select top {top_n}...")
+    
+    fe_cols = [f"fe_{i}" for i in range(1, 21)]
+    
+    # 1. Calculate variance
+    variance_stats = []
+    for col_name in fe_cols:
+        stats = clickstream_df.agg(
+            F.stddev(col_name).alias('std')
+        ).collect()[0]
+        variance = stats['std'] ** 2 if stats['std'] is not None else 0
+        variance_stats.append({'feature': col_name, 'variance': variance})
+    
+    variance_stats_sorted = sorted(variance_stats, key=lambda x: x['variance'], reverse=True)
+    top_variance_features = [s['feature'] for s in variance_stats_sorted[:top_n]]
+    
+    # 2. Calculate correlation with label
+    try:
+        import pandas as pd
+        
+        clickstream_agg = clickstream_df.groupBy("Customer_ID").agg(
+            *[F.mean(c).alias(f"{c}_mean") for c in fe_cols]
+        )
+        
+        data_with_labels = label_store_df.select("Customer_ID", "label") \
+            .join(clickstream_agg, "Customer_ID", "inner")
+        
+        pdf = data_with_labels.toPandas()
+        
+        correlations = []
+        for col_name in fe_cols:
+            mean_col = f"{col_name}_mean"
+            if mean_col in pdf.columns:
+                corr = pdf[mean_col].corr(pdf['label'])
+                correlations.append({
+                    'feature': col_name,
+                    'correlation': abs(corr) if pd.notna(corr) else 0
+                })
+        
+        correlations_sorted = sorted(correlations, key=lambda x: x['correlation'], reverse=True)
+        top_corr_features = [c['feature'] for c in correlations_sorted[:top_n]]
+        
+        # Features that are BOTH high variance AND high correlation
+        recommended_features = list(set(top_variance_features) & set(top_corr_features))
+        
+        print(f"  ✓ Selected {len(recommended_features)} features with high variance + correlation")
+        print(f"    Features: {', '.join(sorted(recommended_features))}\n")
+        
+    except Exception as e:
+        print(f"  ⚠️  Correlation analysis failed: {e}")
+        print(f"  ✓ Falling back to top {top_n} by variance only\n")
+        recommended_features = top_variance_features
+    
+    return {
+        'recommended_features': recommended_features,
+        'top_variance_features': top_variance_features
+    }
+
+
+def select_top_clickstream_features(clickstream_df, feature_list, aggregation='mean'):
+    """
+    Aggregate only selected clickstream features
+    
+    Args:
+        clickstream_df (DataFrame): Clickstream data
+        feature_list (list): List of feature names to keep (e.g., ['fe_1', 'fe_5', 'fe_10'])
+        aggregation (str): 'mean', 'std', or 'both'
+        
+    Returns:
+        DataFrame: Aggregated clickstream with only selected features
+    """
+    print(f"\n=== SELECTING TOP CLICKSTREAM FEATURES ===")
+    print(f"Selected features: {', '.join(feature_list)}")
+    print(f"Aggregation method: {aggregation}\n")
+    
+    agg_exprs = []
+    
+    if aggregation in ['mean', 'both']:
+        agg_exprs.extend([F.mean(c).alias(f"{c}_mean") for c in feature_list])
+    
+    if aggregation in ['std', 'both']:
+        agg_exprs.extend([F.stddev(c).alias(f"{c}_std") for c in feature_list])
+    
+    clickstream_agg = clickstream_df.groupBy("Customer_ID").agg(*agg_exprs)
+    
+    feature_count = len(clickstream_agg.columns) - 1  # Exclude Customer_ID
+    print(f"✓ Created {feature_count} clickstream features from {len(feature_list)} selected columns\n")
+    
+    return clickstream_agg
 
 
 def create_label_store(loan_daily_df, prediction_mob=None, observation_mob=None, 
@@ -115,7 +222,8 @@ def create_label_store(loan_daily_df, prediction_mob=None, observation_mob=None,
 
 
 def create_gold_features(silver_path, label_store_df, spark_session, 
-                        prediction_mob=None, include_loan_history=None):
+                        prediction_mob=None, include_loan_history=None, 
+                        analyze_clickstream=False, top_n_clickstream=10):
     """
     Create gold layer features with time-aware feature engineering (Dynamic)
     
@@ -125,6 +233,8 @@ def create_gold_features(silver_path, label_store_df, spark_session,
         spark_session: Spark session
         prediction_mob (int): Month On Book for prediction (default: from config)
         include_loan_history (bool): Include loan payment history features (default: from config)
+        analyze_clickstream (bool): Run clickstream analysis and select top features
+        top_n_clickstream (int): Number of top clickstream features to keep (if analyze_clickstream=True)
         
     Returns:
         DataFrame: Gold features DataFrame
@@ -136,6 +246,9 @@ def create_gold_features(silver_path, label_store_df, spark_session,
     print(f"\n=== GOLD LAYER: FEATURE ENGINEERING ===")
     print(f"Prediction MOB: {prediction_mob}")
     print(f"Include Loan History: {include_loan_history}")
+    print(f"Clickstream Analysis: {analyze_clickstream}")
+    if analyze_clickstream:
+        print(f"Top N Clickstream: {top_n_clickstream}")
     print(f"="*50 + "\n")
     
     # Load silver data
@@ -225,11 +338,34 @@ def create_gold_features(silver_path, label_store_df, spark_session,
     
     # 4. Aggregate clickstream features
     print("Aggregating clickstream features...")
-    fe_cols = [f"fe_{i}" for i in range(1, 21)]
-    agg_exprs = [F.mean(c).alias(f"{c}_mean") for c in fe_cols] + \
-                [F.stddev(c).alias(f"{c}_std") for c in fe_cols]
-    clickstream_agg = clickstream_history.groupBy("Customer_ID").agg(*agg_exprs)
-    print(f"  ✓ Created 40 clickstream aggregates (20 means + 20 stds)\n")
+    
+    if analyze_clickstream:
+        # Run analysis to select top features
+        print("  Running clickstream variance and correlation analysis...")
+        analysis_results = _analyze_clickstream_for_selection(
+            clickstream_history, 
+            label_store_df, 
+            top_n=top_n_clickstream
+        )
+        
+        # Use recommended features (high variance + high correlation)
+        selected_features = analysis_results['recommended_features']
+        print(f"\n  Selected {len(selected_features)} top features: {selected_features}")
+        
+        # Aggregate only selected features
+        clickstream_agg = select_top_clickstream_features(
+            clickstream_history, 
+            selected_features, 
+            aggregation='both'
+        )
+        print(f"  ✓ Created {len(selected_features)*2} clickstream aggregates ({len(selected_features)} means + {len(selected_features)} stds)\n")
+    else:
+        # Use all 20 features (legacy mode)
+        fe_cols = [f"fe_{i}" for i in range(1, 21)]
+        agg_exprs = [F.mean(c).alias(f"{c}_mean") for c in fe_cols] + \
+                    [F.stddev(c).alias(f"{c}_std") for c in fe_cols]
+        clickstream_agg = clickstream_history.groupBy("Customer_ID").agg(*agg_exprs)
+        print(f"  ✓ Created 40 clickstream aggregates (20 means + 20 stds)\n")
     
     # 5. Get the latest attribute/financials data as of the prediction date
     print("Getting latest customer snapshots...")
