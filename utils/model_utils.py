@@ -22,7 +22,7 @@ def prepare_model_data(gold_features_df):
     """
     model_data = gold_features_df
     ignore_cols = ['Customer_ID', 'Name', 'SSN', 'snapshot_date', 'loan_id', 
-                   'Credit_History_Age', 'label', 'prediction_date', 'start_date'] 
+                   'Credit_History_Age', 'label', 'prediction_date', 'start_date', 'observation_date'] 
     
     categorical_cols = [c for c in model_data.columns 
                        if isinstance(model_data.schema[c].dataType, StringType) and c not in ignore_cols]
@@ -147,16 +147,3 @@ def get_feature_importance(model, categorical_cols, numerical_cols):
 
     print(feature_importance_df.head(10))
     return feature_importance_df
-
-
-def check_model_exists(model_path):
-    """
-    Check if model already exists
-    
-    Args:
-        model_path (str): Path to model
-        
-    Returns:
-        bool: True if exists, False otherwise
-    """
-    return os.path.exists(model_path)

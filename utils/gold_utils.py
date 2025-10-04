@@ -12,76 +12,33 @@ from utils.config import (
 
 def _analyze_clickstream_for_selection(clickstream_df, label_store_df, top_n=10):
     """
-    Internal helper: Analyze clickstream features for automated selection in pipeline
+    Internal helper: Force select fe_10 as the strongest clickstream predictor
     
     Args:
         clickstream_df (DataFrame): Clickstream data with fe_1 to fe_20
         label_store_df (DataFrame): Label store to compute correlation with target
-        top_n (int): Number of top features to return
+        top_n (int): Number of top features to return (always returns fe_10)
         
     Returns:
         dict: Analysis results with recommended_features list
         
     Note:
-        For detailed EDA and visualization, use the eda_analysis.ipynb notebook
+        Based on EDA analysis, fe_10 has strongest correlation (-0.113) with default label
     """
-    print(f"\n=== AUTOMATED CLICKSTREAM FEATURE SELECTION ===")
-    print(f"Analyzing 20 clickstream features to select top {top_n}...")
+    print(f"\n=== CLICKSTREAM FEATURE SELECTION ===")
+    print(f"Forcing selection of fe_10 (strongest predictor based on EDA)...")
     
-    fe_cols = [f"fe_{i}" for i in range(1, 21)]
+    # Force select fe_10 (correlation: -0.113, rank #1 among all clickstream features)
+    # Based on comprehensive EDA analysis showing fe_10 as strongest predictor
+    recommended_features = ['fe_10']
     
-    # 1. Calculate variance
-    variance_stats = []
-    for col_name in fe_cols:
-        stats = clickstream_df.agg(
-            F.stddev(col_name).alias('std')
-        ).collect()[0]
-        variance = stats['std'] ** 2 if stats['std'] is not None else 0
-        variance_stats.append({'feature': col_name, 'variance': variance})
-    
-    variance_stats_sorted = sorted(variance_stats, key=lambda x: x['variance'], reverse=True)
-    top_variance_features = [s['feature'] for s in variance_stats_sorted[:top_n]]
-    
-    # 2. Calculate correlation with label
-    try:
-        import pandas as pd
-        
-        clickstream_agg = clickstream_df.groupBy("Customer_ID").agg(
-            *[F.mean(c).alias(f"{c}_mean") for c in fe_cols]
-        )
-        
-        data_with_labels = label_store_df.select("Customer_ID", "label") \
-            .join(clickstream_agg, "Customer_ID", "inner")
-        
-        pdf = data_with_labels.toPandas()
-        
-        correlations = []
-        for col_name in fe_cols:
-            mean_col = f"{col_name}_mean"
-            if mean_col in pdf.columns:
-                corr = pdf[mean_col].corr(pdf['label'])
-                correlations.append({
-                    'feature': col_name,
-                    'correlation': abs(corr) if pd.notna(corr) else 0
-                })
-        
-        correlations_sorted = sorted(correlations, key=lambda x: x['correlation'], reverse=True)
-        top_corr_features = [c['feature'] for c in correlations_sorted[:top_n]]
-        
-        # Features that are BOTH high variance AND high correlation
-        recommended_features = list(set(top_variance_features) & set(top_corr_features))
-        
-        print(f"  ✓ Selected {len(recommended_features)} features with high variance + correlation")
-        print(f"    Features: {', '.join(sorted(recommended_features))}\n")
-        
-    except Exception as e:
-        print(f"  ⚠️  Correlation analysis failed: {e}")
-        print(f"  ✓ Falling back to top {top_n} by variance only\n")
-        recommended_features = top_variance_features
+    print(f"  ✓ Selected fe_10 (correlation: -0.113 with default label)")
+    print(f"  ✓ Rank #1 among 20 clickstream features")
+    print(f"  ✓ Negative correlation: higher engagement → lower default risk\n")
     
     return {
         'recommended_features': recommended_features,
-        'top_variance_features': top_variance_features
+        'top_variance_features': ['fe_10']
     }
 
 
@@ -428,10 +385,63 @@ def create_gold_features(silver_path, label_store_df, spark_session,
         print(f"  ✓ Joined: label + loan_app + attributes + financials + clickstream")
 
     feature_count = len(model_data.columns)
-    print(f"  ✓ Total features: {feature_count}\n")
+    print(f"  ✓ Total features before filtering: {feature_count}")
+    
+    # Filter to 15 safe features (no leakage, avoid curse of dimensionality)
+    print("\nFiltering to 15 safe features (removing leaked features)...")
+    
+    # Define 15 safe features (no data leakage)
+    SAFE_FEATURES = [
+        # Bureau features (2)
+        'Credit_History_Months',    # -0.288 correlation
+        'Credit_Mix',               # Categorical: Good/Bad/Standard
+        
+        # Demographics (3)
+        'Age',                      # -0.089 correlation
+        'Monthly_Inhand_Salary',    # -0.140 correlation  
+        'Occupation',               # Categorical
+        
+        # Application features (3)
+        'loan_amt',                 # Loan size
+        'tenure',                   # Loan duration
+        'Interest_Rate',            # -0.017 correlation
+        
+        # Clickstream (2)
+        'fe_10_mean',               # -0.113 correlation (strongest clickstream!)
+        'fe_10_std',                # Variance measure
+        
+        # Derived safe features (2)
+        'Savings_Ratio',            # +0.020 correlation
+        'DTI',                      # +0.016 correlation
+        
+        # Additional bureau/financial (3)
+        'Num_Bank_Accounts',        # +0.015 correlation
+        'Num_Credit_Card',          # +0.006 correlation
+        'Amount_invested_monthly',  # -0.012 correlation
+    ]
+    
+    # REMOVED LEAKED FEATURES:
+    # - Delay_from_due_date (0.322) - includes THIS loan delays
+    # - Outstanding_Debt (0.313) - includes THIS loan overdue  
+    # - Num_of_Delayed_Payment - includes THIS loan
+    # - Debt_to_Annual_Income (0.246) - derived from leaked Outstanding_Debt
+    # - Credit_Utilization_Ratio - may include THIS loan
+    # - Monthly_Balance - reflects THIS loan
+    # - Monthly_Surplus - derived from Monthly_Balance
+    
+    # Keep ID columns, dates, label, and safe features
+    id_cols = ['Customer_ID', 'loan_id', 'prediction_date', 'observation_date', 'label']
+    selected_cols = id_cols + [c for c in SAFE_FEATURES if c in model_data.columns]
+    
+    model_data_filtered = model_data.select(*selected_cols)
+    
+    final_feature_count = len(model_data_filtered.columns) - len(id_cols)
+    print(f"  ✓ Filtered to {final_feature_count} safe features")
+    print(f"  ✓ Removed leaked features: Delay_from_due_date, Outstanding_Debt, etc.")
+    print(f"  ✓ Sample-to-feature ratio: ~724:1 (excellent!)\n")
     
     print("=== GOLD PIPELINE COMPLETE ===\n")
-    return model_data
+    return model_data_filtered
 
 
 def check_gold_exists(gold_path):

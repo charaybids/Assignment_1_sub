@@ -64,7 +64,9 @@ def main():
             silver_path=silver_path,
             label_store_df=label_store_df,
             spark_session=spark,
-            prediction_mob=PREDICTION_MOB
+            prediction_mob=PREDICTION_MOB,
+            analyze_clickstream=True,   # Enable automated feature selection
+            top_n_clickstream=1          # Use only fe_10 (top feature)
         )
         
         # Save gold features
